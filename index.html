@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 聊天助手</title>
+    <style>
+        /* 基本样式设置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #343541;
+            color: #ECECF1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        /* 顶部导航栏 */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background-color: #202123;
+            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
+        }
+        
+        .logo {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            background-color: #343541;
+            color: #ECECF1;
+            border: 1px solid #565869;
+            border-radius: 5px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #40414F;
+        }
+        
+        /* 聊天区域 */
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        /* 聊天气泡样式 */
+        .message {
+            display: flex;
+            padding: 10px 20px;
+            border-radius: 8px;
+            max-width: 90%;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .user-message {
+            background-color: #444654;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+        
+        .ai-message {
+            background-color: #343541;
+            border: 1px solid #565869;
+            align-self: flex-start;
+        }
+        
+        /* 输入区域 */
+        .input-container {
+            display: flex;
+            padding: 20px;
+            background-color: #40414F;
+            border-top: 1px solid #565869;
+        }
+        
+        textarea {
+            flex: 1;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #565869;
+            background-color: #40414F;
+            color: #ECECF1;
+            resize: none;
+            height: 50px;
+            outline: none;
+        }
+        
+        .send-btn {
+            margin-left: 10px;
+            padding: 0 15px;
+            background-color: #19C37D;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .send-btn:hover {
+            background-color: #15a76b;
+        }
+        
+        .send-btn:disabled {
+            background-color: #565869;
+            cursor: not-allowed;
+        }
+        
+        /* AI正在输入的动画 */
+        .typing {
+            display: flex;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #343541;
+            border: 1px solid #565869;
+            border-radius: 8px;
+            width: fit-content;
+        }
+        
+        .dot {
+            width: 8px;
+            height: 8px;
+            margin: 0 3px;
+            background-color: #ECECF1;
+            border-radius: 50%;
+            opacity: 0.6;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+        
+        .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        
+        /* 响应式设计 - 适配移动设备 */
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 16px;
+            }
+            
+            button {
+                padding: 6px 10px;
+                font-size: 14px;
+            }
+            
+            .message {
+                max-width: 95%;
+                padding: 8px 12px;
+            }
+            
+            .input-container {
+                padding: 10px;
+            }
+            
+            textarea {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <header>
+        <div class="logo">Grok-3 聊天助手</div>
+        <div class="buttons">
+            <button id="download-btn">下载聊天记录</button>
+            <button id="clear-btn">清除聊天记录</button>
+        </div>
+    </header>
+    
+    <!-- 聊天内容区域 -->
+    <div class="chat-container" id="chat-container">
+        <!-- 聊天内容将在这里动态添加 -->
+    </div>
+    
+    <!-- 输入区域 -->
+    <div class="input-container">
+        <textarea id="user-input" placeholder="输入消息..." rows="1"></textarea>
+        <button class="send-btn" id="send-btn">发送</button>
+    </div>
+
+    <script>
+        // 获取DOM元素
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        
+        // Grok-3 API配置
+        const apiKey = "sk-CB6PEXT7ltyT6OOr655616B30b3e4110B2Da6eF158CcEc7a";  // 您的API密钥
+        const baseUrl = "https://chat-api.xzbzq.com";  // 您的基础URL
+        const model = "grok-3";  // 模型名称
+        
+        // 保存对话上下文
+        let conversationHistory = [];
+        
+        // 控制AI是否正在回复
+        let isAiTyping = false;
+        
+        // 初始化页面时加载聊天记录
+        window.addEventListener('DOMContentLoaded', () => {
+            loadChat();
+            
+            // 自动调整输入框高度
+            userInput.addEventListener('input', () => {
+                userInput.style.height = 'auto';
+                userInput.style.height = (userInput.scrollHeight) + 'px';
+            });
+            
+            // 允许按Enter发送消息（Shift+Enter换行）
+            userInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !isAiTyping) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+        });
+        
+        // 发送按钮点击事件
+        sendBtn.addEventListener('click', () => {
+            if (!isAiTyping) {
+                sendMessage();
+            }
+        });
+        
+        // 清除聊天记录按钮点击事件
+        clearBtn.addEventListener('click', () => {
+            if (confirm('确定要清除所有聊天记录吗？')) {
+                chatContainer.innerHTML = '';
+                // 清空对话历史
+                conversationHistory = [];
+                // 保存空的聊天记录到本地存储
+                localStorage.setItem('chatHistory', JSON.stringify([]));
+                localStorage.setItem('conversationHistory', JSON.stringify([]));
+            }
+        });
+        
+        // 下载聊天记录按钮点击事件
+        downloadBtn.addEventListener('click', () => {
+            downloadChatHistory();
+        });
+        
+        /**
+         * 发送消息的主要函数
+         */
+        function sendMessage() {
+            const message = userInput.value.trim();
+            if (message === '') return;
+            
+            // 添加用户消息到聊天区域
+            addMessageToChat('user', message);
+            
+            // 更新对话历史
+            conversationHistory.push({
+                role: "user",
+                content: message
+            });
+            
+            // 清空输入框并重置高度
+            userInput.value = '';
+            userInput.style.height = '50px';
+            
+            // 显示AI正在输入的动画
+            showAiTypingIndicator();
+            
+            // 发送到API并获取回复
+            getAiResponse();
+        }
+        
+        /**
+         * 向聊天区域添加消息
+         * @param {string} sender - 消息发送者（'user' 或 'ai'）
+         * @param {string} text - 消息内容
+         */
+        function addMessageToChat(sender, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            
+            // 处理文本中的换行符
+            const formattedText = text.replace(/\n/g, '<br>');
+            messageDiv.innerHTML = formattedText;
+            
+            chatContainer.appendChild(messageDiv);
+            
+            // 滚动到最新消息
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            // 保存聊天记录到本地存储
+            saveChat();
+        }
+        
+        /**
+         * 显示AI正在输入的指示器
+         */
+        function showAiTypingIndicator() {
+            isAiTyping = true;
+            sendBtn.disabled = true;
+            
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'typing';
+            typingDiv.id = 'typing-indicator';
+            
+            for (let i = 0; i < 3; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'dot';
+                typingDiv.appendChild(dot);
+            }
+            
+            chatContainer.appendChild(typingDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        /**
+         * 隐藏AI正在输入的指示器
+         */
+        function hideAiTypingIndicator() {
+            const typingIndicator = document.getElementById('typing-indicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+            
+            isAiTyping = false;
+            sendBtn.disabled = false;
+        }
+        
+        /**
+         * 获取AI回复
+         */
+        function getAiResponse() {
+            // 调用Grok-3 API
+            callAiApi()
+                .then(response => {
+                    hideAiTypingIndicator();
+                    addMessageToChat('ai', response);
+                    
+                    // 更新对话历史
+                    conversationHistory.push({
+                        role: "assistant",
+                        content: response
+                    });
+                    
+                    // 保存完整对话历史到本地存储
+                    localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
+                })
+                .catch(error => {
+                    hideAiTypingIndicator();
+                    addMessageToChat('ai', '抱歉，API调用出错：' + error.message);
+                    console.error('API错误:', error);
+                });
+        }
+        
+        /**
+         * 调用Grok-3 API
+         * @returns {Promise} - 返回AI回复的Promise
+         */
+        async function callAiApi() {
+            try {
+                console.log('发送API请求到:', `${baseUrl}/v1/chat/completions`);
+                console.log('请求体:', JSON.stringify({
+                    model: model,
+                    messages: conversationHistory
+                }));
+                
+                // 准备API请求
+                const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: conversationHistory
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('API错误响应:', errorText);
+                    
+                    let errorMessage = `状态码: ${response.status}`;
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        errorMessage += ` - ${JSON.stringify(errorData)}`;
+                    } catch {
+                        errorMessage += ` - ${errorText}`;
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+                
+                const data = await response.json();
+                console.log('API响应:', data);
+                
+                // 检查API响应格式
+                if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+                    throw new Error('API响应格式不正确：' + JSON.stringify(data));
+                }
+                
+                return data.choices[0].message.content;
+            } catch (error) {
+                console.error('API调用失败:', error);
+                throw error;
+            }
+        }
+        
+        /**
+         * 保存聊天记录到本地存储
+         */
+        function saveChat() {
+            const messages = chatContainer.querySelectorAll('.message');
+            const history = [];
+            
+            messages.forEach(msg => {
+                // 忽略typing指示器
+                if (msg.id !== 'typing-indicator') {
+                    const isUser = msg.classList.contains('user-message');
+                    history.push({
+                        sender: isUser ? 'user' : 'ai',
+                        text: msg.innerHTML
+                    });
+                }
+            });
+            
+            localStorage.setItem('chatHistory', JSON.stringify(history));
+        }
+        
+        /**
+         * 从本地存储加载聊天记录和对话历史
+         */
+        function loadChat() {
+            // 加载可见的聊天记录
+            const history = JSON.parse(localStorage.getItem('chatHistory')) || [];
+            
+            history.forEach(msg => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${msg.sender}-message`;
+                messageDiv.innerHTML = msg.text;
+                chatContainer.appendChild(messageDiv);
+            });
+            
+            // 加载对话上下文历史（用于API调用）
+            conversationHistory = JSON.parse(localStorage.getItem('conversationHistory')) || [];
+            
+            // 滚动到最新消息
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        /**
+         * 下载聊天记录为TXT文件
+         */
+        function downloadChatHistory() {
+            const messages = chatContainer.querySelectorAll('.message');
+            let content = 'Grok-3 聊天记录\n\n';
+            
+            messages.forEach(msg => {
+                // 忽略typing指示器
+                if (msg.id !== 'typing-indicator') {
+                    const sender = msg.classList.contains('user-message') ? '用户' : 'AI';
+                    // 替换HTML标签为纯文本
+                    const text = msg.innerHTML.replace(/<br>/g, '\n').replace(/<[^>]*>/g, '');
+                    content += `${sender}: ${text}\n\n`;
+                }
+            });
+            
+            // 创建下载链接
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Grok聊天记录_${new Date().toLocaleDateString()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            
+            // 清理
+            setTimeout(() => {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }, 0);
+        }
+    </script>
+</body>
+</html>
